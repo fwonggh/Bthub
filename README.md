@@ -1,5 +1,5 @@
 ## **BTHub磁力搜索，全球最全最新最热种子磁力链接搜索。**
-### 最新网址:<a href="https://b012t27h013u821b.monster" target="_blank">https://b012t27h013u821b.monster</a>
+### 最新网址:<a href="https://bth01278213.monster" target="_blank">https://bth01278213.monster</a>
 
 ## 网址随时可能会被和谐，务必收藏或分享本页以获取最新网址，收藏访问不迷路！
 
