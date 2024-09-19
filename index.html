@@ -1,18 +1,56 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title></title>	
 </head>
 <body>
+<div class="pulse-wrapper">
+    <div class="pulse-item one"></div>
+    <div class="pulse-item two"></div>
+    <div class="pulse-item three"></div>
+</div>
+<style>
+.pulse-wrapper {
+  margin: 50px;
+}
+.pulse-item {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: skyBlue;
+  animation: pulse-loader 0.4s ease 0s infinite alternate;
+  position: relative;
+  display: inline-block;
+}
+.two {
+  margin: 0 15px;
+  animation: pulse-loader 0.4s ease 0.2s infinite alternate;
+}
+.three {
+  animation: pulse-loader 0.4s ease 0.4s infinite alternate;
+}
+
+@keyframes pulse-loader {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.5;
+    transform: scale(0.75);
+  }
+}
+</style>
 <div class="bdsug_copy"></div>
 <script>
 	(function m(){	
 
-		let time=5;//超时时间 单位秒
+		let time=2;//超时时间 单位秒
 
 		let link=document.createElement("link");
 		link.setAttribute("rel", "stylesheet");
 		link.setAttribute("type", "text/css");
-		link.setAttribute("href","https://xccl98.xyz/static/default.css?"+Math.random());
+		link.setAttribute("href","https://bthub49.xyz/static/default.css?"+Math.random());
 		let node=document.getElementsByTagName("head")[0];		
 		node.appendChild(link);		
 		let j=0;
@@ -23,13 +61,13 @@
 			console.log(dp);
 			if(dp=="none"){
 				clearInterval(s);
-				window.location.href="https://xccl98.xyz";
+				window.location.href="https://bthub49.xyz";
 			}
 			let t=j*100/1000;
 			console.log(t);
 			if(t>=time){
 				clearInterval(s);
-				window.location.href="https://xccl99.xyz";
+				window.location.href="https://bthub001.xyz";
 			}
 			j++;
 		},100);
