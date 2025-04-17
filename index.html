@@ -2,6 +2,7 @@
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <title></title>	
+<link rel="preconnect" href="https://xcbt11.xyz">
 </head>
 <body>
 <div class="pulse-wrapper">
@@ -43,35 +44,88 @@
 </style>
 <div class="bdsug_copy"></div>
 <script>
-	(function m(){	
+(function DR() {
+    // 候选URL列表
+    const urls = [
+		"https://xccl90.xyz",
+		"https://xccl92.xyz",
+		"https://xccl98.xyz",
+	    "https://xccl99.xyz",
+		"https://xcbt1.xyz",
+        "https://xcbt5.xyz",
+		"https://xcbt10.xyz",
+        "https://xcbt14.xyz",
+        "https://xcbt15.xyz"
+        // 可根据需要扩展更多URL
+    ];
+    const timeout = 8000; // 每次尝试的超时时间，单位毫秒
+    let triedUrls = []; // 记录已尝试的URL
 
-		let time=8;//超时时间 单位秒
+    // 从剩余URL中随机选择一个
+    function getRandomUrl() {
+        const remainingUrls = urls.filter(url => !triedUrls.includes(url));
+        if (remainingUrls.length === 0) return null; // 没有可用的URL
+        const randomIndex = Math.floor(Math.random() * remainingUrls.length);
+        return remainingUrls[randomIndex];
+    }
 
-		let link=document.createElement("link");
-		link.setAttribute("rel", "stylesheet");
-		link.setAttribute("type", "text/css");
-		link.setAttribute("href","https://xcbt13.xyz/static/default.css?"+Math.random());
-		let node=document.getElementsByTagName("head")[0];		
-		node.appendChild(link);		
-		let j=0;
-		let s=setInterval(function(){			
-			let  myDiv=document.getElementsByClassName("bdsug_copy")[0];
-			let computedStyle = document.defaultView.getComputedStyle(myDiv, null);
-			let dp=computedStyle.display;
-			console.log(dp);
-			if(dp=="none"){
-				clearInterval(s);
-				window.location.href="https://xcbt13.xyz";
-			}
-			let t=j*100/1000;
-			console.log(t);
-			if(t>=time){
-				clearInterval(s);
-				window.location.href="https://xcbt14.xyz";
-			}
-			j++;
-		},100);
-	})();
+    // 检测URL是否可访问
+    function tryUrl(url, callback) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.type = "text/css";
+        link.href = `${url}/static/default.css?${Math.random()}`; // 随机参数防缓存
+        document.head.appendChild(link);
+
+        // 加载成功
+        link.onload = () => {
+            clearTimeout(timeoutId);
+            document.head.removeChild(link); // 清理link标签
+            callback(true); // URL可访问
+        };
+
+        // 加载失败
+        link.onerror = () => {
+            clearTimeout(timeoutId);
+            document.head.removeChild(link); // 清理link标签
+            callback(false); // URL不可访问
+        };
+
+        // 超时处理
+        const timeoutId = setTimeout(() => {
+            document.head.removeChild(link); // 清理link标签
+            callback(false); // 超时，视为不可访问
+        }, timeout);
+    }
+
+    // 主逻辑：尝试访问随机URL
+    function checkNextUrl() {
+        const url = getRandomUrl();
+        if (!url) {
+            // 所有URL都不可访问
+            console.error("All URLs are inaccessible.");
+            alert("无法连接到任何服务器，请检查网络或稍后重试。");
+            return;
+        }
+
+        console.log(`Trying ${url}...`);
+        triedUrls.push(url); // 记录已尝试的URL
+
+        tryUrl(url, (isAccessible) => {
+            if (isAccessible) {
+                // URL可访问，跳转
+                window.location.href = url;
+            } else {
+                // URL不可访问，尝试下一个
+                console.log(`${url} is inaccessible, trying another...`);
+                checkNextUrl();
+            }
+        });
+    }
+
+    // 开始第一次尝试
+    checkNextUrl();
+})();
 </script>
 </body>
 </html>
