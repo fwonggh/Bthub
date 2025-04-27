@@ -1,122 +1,197 @@
-<html>
+<!DOCTYPE html>
+<html lang="zh">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-</head>
-<body>
-<div class="pulse-wrapper">
-    <div class="pulse-item one"></div>
-    <div class="pulse-item two"></div>
-    <div class="pulse-item three"></div>
-</div>
-<style>
-.pulse-wrapper {
-  margin: 50px;
-}
-.pulse-item {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: skyBlue;
-  animation: pulse-loader 0.4s ease 0s infinite alternate;
-  position: relative;
-  display: inline-block;
-}
-.two {
-  margin: 0 15px;
-  animation: pulse-loader 0.4s ease 0.2s infinite alternate;
-}
-.three {
-  animation: pulse-loader 0.4s ease 0.4s infinite alternate;
-}
-
-@keyframes pulse-loader {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0.5;
-    transform: scale(0.75);
-  }
-}
-</style>
-<script>
-async function tryRandomUrl() {
-    // URL列表
-    const baseUrls = [
-	    'xcbt3.xyz', 
-	    'xcbt4.xyz', 
-	    'xcbt5.xyz', 
-	    'xcbt10.xyz',		
-	    'xccl90.xyz',
-	    'xccl92.xyz',
-	    'xccl98.xyz',
-	    'xccl99.xyz',
-	    'xcbt1.xyz',
-	    'xcbt10.xyz',
-            'xcbt14.xyz',
-            'xcbt15.xyz']; 
-    const urls = baseUrls.map(num => `https://${num}`);
-    
-    // 随机排序函数
-    const shuffleArray = (array) => {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title></title>
+    <style>
+        body {
+            background-color: #f4f4f4;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 2em;
         }
-        return array;
-    };
-    
-    // 随机化URL列表
-    const shuffledUrls = shuffleArray([...urls]);
-    
-    // 每个URL的最大尝试次数
-    const maxAttemptsPerUrl = 2;
-    
-    // 尝试访问URL
-    for (const url of shuffledUrls) {
-        let isLastAttemptSuccessful = false;
-        
-        // 对当前URL尝试maxAttemptsPerUrl次
-        for (let attempt = 1; attempt <= maxAttemptsPerUrl; attempt++) {
-            try {
-                const response = await fetch(url, {
-                    method: 'HEAD', // 尝试HEAD请求
-                    mode: 'no-cors', // 绕过CORS限制
-                    timeout: 5000
-                });
-                
-                console.log(`尝试访问: ${url} (第 ${attempt} 次)`);
-                
-                // 记录最后一次尝试的结果
-                if (attempt === maxAttemptsPerUrl) {
-                    isLastAttemptSuccessful = true;
-                }
-            } catch (error) {
-                console.log(`无法访问 ${url} (第 ${attempt} 次): ${error.message}`);
-                
-                // 如果是最后一次尝试且失败，标记为不可访问
-                if (attempt === maxAttemptsPerUrl) {
-                    isLastAttemptSuccessful = false;
-                }
+
+       .bounce-wrapper {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: flex-start;
+        }
+
+       .bounce-item {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #007acc;
+            animation: scale-loader 0.6s ease infinite alternate;
+            margin: 0 5px;
+        }
+
+       .bounce-item:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+       .bounce-item:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes scale-loader {
+            0% {
+                transform: scale(1);
+            }
+            100% {
+                transform: scale(0.5);
             }
         }
-        
-        // 如果最后一次尝试成功，跳转到当前URL
-        if (isLastAttemptSuccessful) {
-            console.log(`最后一次尝试成功，跳转到: ${url}`);
-            window.location.href = url;
-            return;
-        } else {
-            console.log(`URL ${url} 最后一次尝试失败，继续尝试下一个URL`);
-        }
-    }
-    
-    console.log('所有URL的最后一次尝试都不可访问');
-}
 
-// 执行函数
-tryRandomUrl();
+        #logOutput {
+            padding: 1em;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            color: #000;
+            font-family: 'Courier New', monospace;
+            border: none;
+            border-radius: 0;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+            line-height: 1.4;
+            word-wrap: break-word;
+            background: transparent;
+        }
+
+        #logOutput div {
+            margin-bottom: 5px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="bounce-wrapper">
+   <div class="bounce-item"></div>
+   <div class="bounce-item"></div>
+    <div class="bounce-item"></div>
+</div>
+<div id="logOutput"></div>
+<script>
+  const originalConsoleLog = console.log;
+  const logContainer = document.getElementById('logOutput');
+  console.log = function (...args) {
+    originalConsoleLog.apply(console, args);
+    const message = args.map(arg =>
+      typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+    ).join(' ');
+    const line = document.createElement('div');
+    line.textContent = message;
+    logContainer.appendChild(line);
+    logContainer.scrollTop = logContainer.scrollHeight;
+  };
+
+  function shuffleArray(arr) {
+    const array = [...arr];
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function tryRandomUrl() {
+    const baseUrls = ['xcbt1','xcbt3', 'xcbt4', 'xcbt5','xcbt15','xccl90','xccl92','xccl98','xccl99'];
+    const urls = shuffleArray(baseUrls.map(num => `https://${num}.xyz`));
+    const maxAttempts = 3;
+    const timeoutMs = 15000;
+
+    for (const url of urls) {
+      console.log(`尝试小草磁力网址: ${url}`);
+      let isLastAttemptSuccessful = false;
+      let durations = [];
+      let timeoutCount = 0;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          const startTime = performance.now();
+
+          await fetch(url, {
+            method: 'HEAD',
+            mode: 'no-cors',
+            signal: controller.signal
+          });
+
+          const endTime = performance.now();
+          clearTimeout(timeoutId);
+
+          const duration = Math.round(endTime - startTime);
+          durations.push(duration);
+          console.log(`第 ${attempt} 次访问成功，用时 ${duration}ms`);
+
+          if (attempt === maxAttempts) {
+            isLastAttemptSuccessful = true;
+          }
+        } catch (err) {
+          const reason = err.name === 'AbortError' ? '请求超时' : err.message;
+          console.log(`第 ${attempt} 次访问失败: ${reason}`);
+          if (err.name === 'AbortError') timeoutCount++;
+          if (attempt === maxAttempts) isLastAttemptSuccessful = false;
+        }
+
+        await sleep(200);
+      }
+
+      if (timeoutCount === maxAttempts) {
+        const fullTimeout = document.createElement('div');
+        fullTimeout.textContent = `🚫 所有尝试均超时`;
+        fullTimeout.style.color = '#f00';
+        fullTimeout.style.fontWeight = 'bold';
+        logContainer.appendChild(fullTimeout);
+      } else {
+        const avgDuration = Math.round(
+          durations.reduce((a, b) => a + b, 0) / durations.length
+        );
+        console.log(`平均用时：${avgDuration}ms 超时次数：${timeoutCount}/${maxAttempts}`);
+
+        if (avgDuration > 5000 || timeoutCount >= 2) {
+          const warn = document.createElement('div');
+          warn.textContent = `⚠ 网络速度慢，建议更换其他网络`;
+          warn.style.color = '#b00';
+          warn.style.fontWeight = 'bold';
+          logContainer.appendChild(warn);
+        }
+      }
+
+      if (isLastAttemptSuccessful) {
+        console.log(`尝试成功，正在跳转，请稍等！`);
+        window.location.href = url;
+        return;
+      } else {
+        console.log(`最后一次尝试失败，继续下一个`);
+      }
+    }
+
+    console.log("所有网址的尝试都失败了，请稍后重试！！");
+  }
+
+  tryRandomUrl();
 </script>
 </body>
 </html>
