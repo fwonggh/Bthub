@@ -115,8 +115,17 @@
   }
 
   async function tryRandomUrl() {
-    const baseUrls = ['xcbt1','xcbt19','xcbt4','xccl90','xcbt16','xcbt17','xcbt20','xccl92','xcbt18','xccl99'];
-    const urls = shuffleArray(baseUrls.map(num => `https://${num}.xyz`));
+    const urls = shuffleArray([
+    'https://xcbt1.xyz',
+    'https://xcbt19.xyz',
+    'https://xcbt4.xyz',
+    'https://xccl90.xyz',
+    'https://xcbt16.xyz',
+    'https://xcbt17.xyz',
+    'https://xcbt20.xyz',
+    'https://xccl92.xyz',
+    'https://xcbt18.xyz'
+  ]);
     const maxAttempts = 3;
     const timeoutMs = 15000;
 
