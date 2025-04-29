@@ -86,6 +86,7 @@
    <div class="bounce-item"></div>
     <div class="bounce-item"></div>
 </div>
+
 <div id="logOutput"></div>
 <script>
   const originalConsoleLog = console.log;
@@ -187,19 +188,47 @@
         }
       }
 
-      if (isLastAttemptSuccessful) {
-        console.log(`尝试成功，正在跳转，请稍等！`);
-        window.location.href = url;
-        return;
-      } else {
-        console.log(`最后一次尝试失败，继续下一个`);
-      }
+  if (isLastAttemptSuccessful) {
+      console.log(`尝试成功，即将跳转到: ${url}`);
+      await showCountdownAndRedirect(url);
+      return;
+    } else {
+      console.log(`URL ${url} 最后一次尝试失败，继续下一个`);
     }
-
-    console.log("所有网址的尝试都失败了，请稍后重试！！");
   }
 
-  tryRandomUrl();
+  console.log("所有 URL 的最后一次尝试都失败了");
+}
+
+// 显示倒计时然后跳转
+async function showCountdownAndRedirect(targetUrl) {
+  const countdownDiv = document.createElement('div');
+  countdownDiv.className = 'countdown';
+  logContainer.appendChild(countdownDiv);
+
+  let secondsLeft = 5;
+  
+  function updateCountdown() {
+    if (secondsLeft > 0) {
+      countdownDiv.textContent = `正在跳转...（${secondsLeft}秒）`;
+    } else {
+      countdownDiv.textContent = `正在跳转...`;
+    }
+  }
+
+  updateCountdown();
+
+  const intervalId = setInterval(() => {
+    secondsLeft--;
+    updateCountdown();
+    if (secondsLeft < 0) {
+      clearInterval(intervalId);
+      window.location.href = targetUrl;
+    }
+  }, 1000);
+}
+
+tryRandomUrl();
 </script>
 </body>
 </html>
