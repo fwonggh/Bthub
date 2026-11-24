@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>获取最新网址</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f8fa;
+      --card: #ffffff;
+      --text: #1f2328;
+      --muted: #57606a;
+      --border: #d0d7de;
+      --primary: #0969da;
+      --primary-hover: #0550ae;
+      --success: #1a7f37;
+      --danger: #cf222e;
+      --warn-bg: #fff8c5;
+      --warn-border: #d4a72c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0d1117;
+        --card: #161b22;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --border: #30363d;
+        --primary: #2f81f7;
+        --primary-hover: #1f6feb;
+        --success: #3fb950;
+        --danger: #f85149;
+        --warn-bg: rgba(187, 128, 9, 0.15);
+        --warn-border: #9e6a03;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+    .head-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    h1 { margin: 0; font-size: 20px; }
+    .ver { font-size: 12px; color: var(--muted); }
+    .desc {
+      margin: 0 0 18px;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .update-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .update-banner.show { display: flex; }
+    .status {
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      margin-bottom: 16px;
+      word-break: break-all;
+    }
+    .status.ok { border-color: var(--success); color: var(--success); }
+    .status.err { border-color: var(--danger); color: var(--danger); }
+    .url-box {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .url-input {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    button, a.btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+    .btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .mirrors {
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .mirrors-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .mirrors-list a {
+      font-size: 13px;
+      color: var(--primary);
+      text-decoration: none;
+    }
+    .mirrors-list a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="head-row">
+      <h1>最新网址获取器</h1>
+      <span id="verLabel" class="ver"></span>
+    </div>
+    <p class="desc">从 <code>github.io</code> 与 <code>pages.dev</code> 获取最新网址，并支持检查本工具自身更新。</p>
+
+    <div id="updateBanner" class="update-banner">
+      <span id="updateText">发现新版本工具</span>
+      <button id="downloadUpdateBtn" class="btn btn-primary btn-sm" type="button">下载新版 HTML</button>
+    </div>
+
+    <div id="statusBox" class="status">正在从 github.io / pages.dev 获取最新网址…</div>
+
+    <div class="url-box">
+      <input id="latestUrlInput" class="url-input" type="text" readonly placeholder="等待获取最新网址..." />
+      <button id="copyBtn" type="button">复制</button>
+    </div>
+
+    <div class="actions">
+      <a id="openBtn" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">立即打开最新网址</a>
+      <button id="retryBtn" type="button">重新检测</button>
+      <button id="checkUpdateBtn" type="button">检查工具更新</button>
+      <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;">
+        <input id="autoJumpChk" type="checkbox" checked />
+        获取到后自动跳转
+      </label>
+    </div>
+
+    <div class="mirrors">
+      <div>若自动获取受限，可直接打开以下发布页或备用域名：</div>
+      <div id="mirrorsList" class="mirrors-list"></div>
+    </div>
+  </main>
+
+  <script>
+    // 每次修改本 HTML 文件时，递增此版本号
+    const TOOL_VERSION = "2026.11.24.1";
+
+    // 最新网址发布文件路径（github.io / pages.dev）
+    const SOURCES = [
+      "https:https://fwonggh.github.io/Bthub/latest-url.txt",
+      "https://bt-redirect.pages.dev/latest-url.txt"
+    ];
+
+    // 本 HTML 工具自身的远程托管地址（用于检查新版本与一键下载）
+    const TOOL_SOURCES = [
+      "https://your-github-user.github.io/your-repo/latest-url.html",
+      "https://your-pages-project.pages.dev/latest-url.html"
+    ];
+
+    // 兜底备用入口
+    const FALLBACK_URLS = [
+      "https://your-github-user.github.io/your-repo/",
+      "https://your-pages-project.pages.dev/",
+      "https://www.xccl263.xyz",
+      "https://www.xccl276.xyz",
+      "https://www.xccl287.xyz"
+    ];
+
+    const verLabel = document.getElementById("verLabel");
+    const updateBanner = document.getElementById("updateBanner");
+    const updateText = document.getElementById("updateText");
+    const downloadUpdateBtn = document.getElementById("downloadUpdateBtn");
+    const statusBox = document.getElementById("statusBox");
+    const latestUrlInput = document.getElementById("latestUrlInput");
+    const openBtn = document.getElementById("openBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const retryBtn = document.getElementById("retryBtn");
+    const checkUpdateBtn = document.getElementById("checkUpdateBtn");
+    const autoJumpChk = document.getElementById("autoJumpChk");
+    const mirrorsList = document.getElementById("mirrorsList");
+
+    verLabel.textContent = "v" + TOOL_VERSION;
+    let latestHtmlCache = "";
+    let latestRemoteVersion = "";
+
+    function renderMirrors() {
+      mirrorsList.innerHTML = FALLBACK_URLS.map((u) => {
+        const safe = u.replace(/"/g, "&quot;");
+        return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`;
+      }).join("");
+    }
+
+    function normalizeUrl(raw) {
+      const s = String(raw || "").trim();
+      if (!s) return "";
+      if (s.startsWith("{")) {
+        try {
+          const obj = JSON.parse(s);
+          const candidate = obj.url || obj.latest_url || obj.domain || "";
+          if (typeof candidate === "string" && candidate.trim()) {
+            const v = candidate.trim();
+            return /^https?:\/\//i.test(v) ? v : "https://" + v;
+          }
+        } catch (_) {}
+      }
+      const match = s.match(/https?:\/\/[^\s"'<>]+/i);
+      if (match) return match[0].replace(/[.,;)]+$/, "");
+      const firstLine = s.split(/\r?\n/)[0].trim();
+      if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(firstLine)) {
+        return "https://" + firstLine;
+      }
+      return "";
+    }
+
+    function parseVersionFromHtml(htmlText) {
+      const m = String(htmlText || "").match(/const\s+TOOL_VERSION\s*=\s*["']([^"']+)["']/);
+      return m ? m[1].trim() : "";
+    }
+
+    async function fetchTextWithTimeout(url, timeoutMs = 4500) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const sep = url.includes("?") ? "&" : "?";
+        const res = await fetch(`${url}${sep}_t=${Date.now()}`, {
+          signal: ctrl.signal,
+          cache: "no-store"
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return await res.text();
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function resolveLatestUrl() {
+      statusBox.className = "status";
+      statusBox.textContent = "正在从 github.io / pages.dev 获取最新网址…";
+      latestUrlInput.value = "";
+      openBtn.setAttribute("href", "#");
+
+      for (const src of SOURCES) {
+        try {
+          const text = await fetchTextWithTimeout(src);
+          const target = normalizeUrl(text);
+          if (!target) continue;
+          statusBox.className = "status ok";
+          statusBox.textContent = "已获取最新网址（来源：" + src + "）";
+          latestUrlInput.value = target;
+          openBtn.setAttribute("href", target);
+
+          if (autoJumpChk.checked) {
+            setTimeout(() => {
+              window.location.href = target;
+            }, 600);
+          }
+          return;
+        } catch (_) {}
+      }
+
+      statusBox.className = "status err";
+      statusBox.textContent = "自动获取最新网址失败，请点击下方备用入口或重新检测。";
+    }
+
+    async function checkToolUpdate(showNoUpdateToast = false) {
+      for (const src of TOOL_SOURCES) {
+        try {
+          const html = await fetchTextWithTimeout(src, 5000);
+          const remoteVer = parseVersionFromHtml(html);
+          if (remoteVer && remoteVer !== TOOL_VERSION && html.includes("<html")) {
+            latestHtmlCache = html;
+            latestRemoteVersion = remoteVer;
+            updateText.textContent = `发现新版获取器（当前 v${TOOL_VERSION} → 最新 v${remoteVer}）`;
+            updateBanner.classList.add("show");
+            return true;
+          }
+          if (remoteVer === TOOL_VERSION) {
+            updateBanner.classList.remove("show");
+            if (showNoUpdateToast) {
+              statusBox.className = "status ok";
+              statusBox.textContent = `当前已是最新版本（v${TOOL_VERSION}）。`;
+            }
+            return false;
+          }
+        } catch (_) {}
+      }
+      if (showNoUpdateToast) {
+        statusBox.className = "status err";
+        statusBox.textContent = "暂无法检查工具更新，请稍后再试。";
+      }
+      return false;
+    }
+
+    downloadUpdateBtn.addEventListener("click", async () => {
+      let htmlToSave = latestHtmlCache;
+      if (!htmlToSave) {
+        for (const src of TOOL_SOURCES) {
+          try {
+            const h = await fetchTextWithTimeout(src, 5000);
+            if (h && h.includes("<html")) {
+              htmlToSave = h;
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+      if (!htmlToSave) return;
+
+      const blob = new Blob([htmlToSave], { type: "text/html;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `最新网址获取器${latestRemoteVersion ? "_v" + latestRemoteVersion : ""}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+    });
+
+    copyBtn.addEventListener("click", async () => {
+      const val = latestUrlInput.value.trim();
+      if (!val) return;
+      try {
+        await navigator.clipboard.writeText(val);
+        copyBtn.textContent = "已复制";
+      } catch (_) {
+        latestUrlInput.select();
+        document.execCommand("copy");
+        copyBtn.textContent = "已复制";
+      }
+      setTimeout(() => { copyBtn.textContent = "复制"; }, 1500);
+    });
+
+    retryBtn.addEventListener("click", resolveLatestUrl);
+    checkUpdateBtn.addEventListener("click", () => checkToolUpdate(true));
+
+    renderMirrors();
+    resolveLatestUrl();
+    checkToolUpdate(false);
+  </script>
+</body>
+</html>
