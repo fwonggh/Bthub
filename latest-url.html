@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>获取最新网址</title>
+  <title>飞鱼磁力最新网址获取</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -30,7 +30,7 @@
         --primary-hover: #1f6feb;
         --success: #3fb950;
         --danger: #f85149;
-        --warn-bg: rgba(187, 128, 9, 0.15);
+        --warn-bg: rgba(187, 128, 9, 0.16);
         --warn-border: #9e6a03;
       }
     }
@@ -79,9 +79,15 @@
       background: var(--warn-bg);
       border: 1px solid var(--warn-border);
       font-size: 13px;
+      line-height: 1.5;
       margin-bottom: 16px;
     }
     .update-banner.show { display: flex; }
+    .banner-btns {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
     .status {
       padding: 12px 14px;
       border-radius: 8px;
@@ -161,14 +167,16 @@
       <h1>最新网址获取器</h1>
       <span id="verLabel" class="ver"></span>
     </div>
-    <p class="desc">从 <code>github.io</code> 与 <code>pages.dev</code> 获取最新网址，并支持检查本工具自身更新。</p>
 
-    <div id="updateBanner" class="update-banner">
-      <span id="updateText">发现新版本工具</span>
-      <button id="downloadUpdateBtn" class="btn btn-primary btn-sm" type="button">下载新版 HTML</button>
+    <div id="updateBanner" class="update-banner" role="alert">
+      <span id="updateText">发现新版本</span>
+      <div class="banner-btns">
+        <button id="confirmUpdateBtn" class="btn btn-primary btn-sm" type="button">确定下载</button>
+        <button id="dismissUpdateBtn" class="btn btn-sm" type="button">暂不更新</button>
+      </div>
     </div>
 
-    <div id="statusBox" class="status">正在从 github.io / pages.dev 获取最新网址…</div>
+    <div id="statusBox" class="status">正在检查更新并获取最新网址…</div>
 
     <div class="url-box">
       <input id="latestUrlInput" class="url-input" type="text" readonly placeholder="等待获取最新网址..." />
@@ -178,10 +186,9 @@
     <div class="actions">
       <a id="openBtn" class="btn btn-primary" href="#" target="_blank" rel="noopener noreferrer">立即打开最新网址</a>
       <button id="retryBtn" type="button">重新检测</button>
-      <button id="checkUpdateBtn" type="button">检查工具更新</button>
       <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;">
         <input id="autoJumpChk" type="checkbox" checked />
-        获取到后自动跳转
+        获取到后自动打开网址
       </label>
     </div>
 
@@ -192,46 +199,44 @@
   </main>
 
   <script>
-    // 每次修改本 HTML 文件时，递增此版本号
-    const TOOL_VERSION = "2026.11.24.1";
+    // 每次发布新版本 HTML 时，修改此版本号
+    const TOOL_VERSION = "2026.11.24.2";
 
     // 最新网址发布文件路径（github.io / pages.dev）
     const SOURCES = [
-      "https:https://fwonggh.github.io/Bthub/latest-url.txt",
+      "https://fwonggh.github.io/Bthub/latest-url.txt",
       "https://bt-redirect.pages.dev/latest-url.txt"
     ];
 
     // 本 HTML 工具自身的远程托管地址（用于检查新版本与一键下载）
     const TOOL_SOURCES = [
-      "https://your-github-user.github.io/your-repo/latest-url.html",
-      "https://your-pages-project.pages.dev/latest-url.html"
+      "https://fwonggh.github.io/Bthub/latest-url.html",
+      "https://bt-redirect.pages.dev/latest-url.html"
     ];
 
     // 兜底备用入口
     const FALLBACK_URLS = [
-      "https://your-github-user.github.io/your-repo/",
-      "https://your-pages-project.pages.dev/",
-      "https://www.xccl263.xyz",
-      "https://www.xccl276.xyz",
-      "https://www.xccl287.xyz"
+      "https://fycl.link",
+      "https://fycl.work"
     ];
 
     const verLabel = document.getElementById("verLabel");
     const updateBanner = document.getElementById("updateBanner");
     const updateText = document.getElementById("updateText");
-    const downloadUpdateBtn = document.getElementById("downloadUpdateBtn");
+    const confirmUpdateBtn = document.getElementById("confirmUpdateBtn");
+    const dismissUpdateBtn = document.getElementById("dismissUpdateBtn");
     const statusBox = document.getElementById("statusBox");
     const latestUrlInput = document.getElementById("latestUrlInput");
     const openBtn = document.getElementById("openBtn");
     const copyBtn = document.getElementById("copyBtn");
     const retryBtn = document.getElementById("retryBtn");
-    const checkUpdateBtn = document.getElementById("checkUpdateBtn");
     const autoJumpChk = document.getElementById("autoJumpChk");
     const mirrorsList = document.getElementById("mirrorsList");
 
     verLabel.textContent = "v" + TOOL_VERSION;
     let latestHtmlCache = "";
     let latestRemoteVersion = "";
+    let hasPendingUpdate = false;
 
     function renderMirrors() {
       mirrorsList.innerHTML = FALLBACK_URLS.map((u) => {
@@ -240,28 +245,55 @@
       }).join("");
     }
 
+    function pickRandomItem(arr) {
+      if (!Array.isArray(arr) || !arr.length) return "";
+      if (arr.length === 1) return arr[0];
+      if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+        const buf = new Uint32Array(1);
+        const limit = Math.floor(0x100000000 / arr.length) * arr.length;
+        let n = 0;
+        do {
+          window.crypto.getRandomValues(buf);
+          n = buf[0];
+        } while (n >= limit);
+        return arr[n % arr.length];
+      }
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
     function normalizeUrl(raw) {
       const s = String(raw || "").trim();
       if (!s) return "";
       if (s.startsWith("{")) {
         try {
           const obj = JSON.parse(s);
-          const candidate = obj.url || obj.latest_url || obj.domain || "";
-          if (typeof candidate === "string" && candidate.trim()) {
-            const v = candidate.trim();
-            return /^https?:\/\//i.test(v) ? v : "https://" + v;
-          }
+          const list = Array.isArray(obj.urls)
+            ? obj.urls
+            : [obj.url || obj.latest_url || obj.domain || ""];
+          const validJson = list
+            .map((item) => String(item || "").trim())
+            .filter(Boolean)
+            .map((v) => (/^https?:\/\//i.test(v) ? v : "https://" + v));
+          if (validJson.length) return pickRandomItem(validJson);
         } catch (_) {}
       }
-      const match = s.match(/https?:\/\/[^\s"'<>]+/i);
-      if (match) return match[0].replace(/[.,;)]+$/, "");
-      const firstLine = s.split(/\r?\n/)[0].trim();
-      if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(firstLine)) {
-        return "https://" + firstLine;
-      }
-      return "";
-    }
 
+      const candidates = s
+        .split(/\r?\n/)
+        .map((line) => line.replace(/#.*$/, "").trim())
+        .filter(Boolean)
+        .map((line) => {
+          const m = line.match(/https?:\/\/[^\s"'<>]+/i);
+          if (m) return m[0].replace(/[.,;)]+$/, "");
+          if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(line)) {
+            return "https://" + line;
+          }
+          return "";
+        })
+        .filter(Boolean);
+
+      return pickRandomItem(candidates);
+    }
     function parseVersionFromHtml(htmlText) {
       const m = String(htmlText || "").match(/const\s+TOOL_VERSION\s*=\s*["']([^"']+)["']/);
       return m ? m[1].trim() : "";
@@ -283,9 +315,43 @@
       }
     }
 
+    function triggerHtmlDownload(htmlText, versionTag) {
+      if (!htmlText) return false;
+      const blob = new Blob([htmlText], { type: "text/html;charset=utf-8" });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = `最新网址获取器${versionTag ? "_v" + versionTag : ""}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2500);
+      return true;
+    }
+
+    async function checkToolUpdate() {
+      for (const src of TOOL_SOURCES) {
+        try {
+          const html = await fetchTextWithTimeout(src, 5000);
+          const remoteVer = parseVersionFromHtml(html);
+          if (remoteVer && remoteVer !== TOOL_VERSION && html.includes("<html")) {
+            latestHtmlCache = html;
+            latestRemoteVersion = remoteVer;
+            hasPendingUpdate = true;
+            autoJumpChk.checked = false;
+            updateText.textContent = `发现新版本 v${remoteVer}（当前 v${TOOL_VERSION}），是否下载新版？`;
+            updateBanner.classList.add("show");
+            return true;
+          }
+        } catch (_) {}
+      }
+      hasPendingUpdate = false;
+      return false;
+    }
+
     async function resolveLatestUrl() {
       statusBox.className = "status";
-      statusBox.textContent = "正在从 github.io / pages.dev 获取最新网址…";
+      statusBox.textContent = "正在获取最新网址…";
       latestUrlInput.value = "";
       openBtn.setAttribute("href", "#");
 
@@ -295,14 +361,14 @@
           const target = normalizeUrl(text);
           if (!target) continue;
           statusBox.className = "status ok";
-          statusBox.textContent = "已获取最新网址（来源：" + src + "）";
+          statusBox.textContent = "已获取最新网址";
           latestUrlInput.value = target;
           openBtn.setAttribute("href", target);
 
-          if (autoJumpChk.checked) {
+          if (!hasPendingUpdate && autoJumpChk.checked) {
             setTimeout(() => {
               window.location.href = target;
-            }, 600);
+            }, 800);
           }
           return;
         } catch (_) {}
@@ -312,36 +378,10 @@
       statusBox.textContent = "自动获取最新网址失败，请点击下方备用入口或重新检测。";
     }
 
-    async function checkToolUpdate(showNoUpdateToast = false) {
-      for (const src of TOOL_SOURCES) {
-        try {
-          const html = await fetchTextWithTimeout(src, 5000);
-          const remoteVer = parseVersionFromHtml(html);
-          if (remoteVer && remoteVer !== TOOL_VERSION && html.includes("<html")) {
-            latestHtmlCache = html;
-            latestRemoteVersion = remoteVer;
-            updateText.textContent = `发现新版获取器（当前 v${TOOL_VERSION} → 最新 v${remoteVer}）`;
-            updateBanner.classList.add("show");
-            return true;
-          }
-          if (remoteVer === TOOL_VERSION) {
-            updateBanner.classList.remove("show");
-            if (showNoUpdateToast) {
-              statusBox.className = "status ok";
-              statusBox.textContent = `当前已是最新版本（v${TOOL_VERSION}）。`;
-            }
-            return false;
-          }
-        } catch (_) {}
-      }
-      if (showNoUpdateToast) {
-        statusBox.className = "status err";
-        statusBox.textContent = "暂无法检查工具更新，请稍后再试。";
-      }
-      return false;
-    }
+    confirmUpdateBtn.addEventListener("click", async () => {
+      confirmUpdateBtn.disabled = true;
+      updateText.textContent = `正在下载新版本 v${latestRemoteVersion || "latest"}…`;
 
-    downloadUpdateBtn.addEventListener("click", async () => {
       let htmlToSave = latestHtmlCache;
       if (!htmlToSave) {
         for (const src of TOOL_SOURCES) {
@@ -354,17 +394,18 @@
           } catch (_) {}
         }
       }
-      if (!htmlToSave) return;
 
-      const blob = new Blob([htmlToSave], { type: "text/html;charset=utf-8" });
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = blobUrl;
-      a.download = `最新网址获取器${latestRemoteVersion ? "_v" + latestRemoteVersion : ""}.html`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      if (triggerHtmlDownload(htmlToSave, latestRemoteVersion)) {
+        updateText.textContent = `已开始下载新版 v${latestRemoteVersion || "latest"}，请在浏览器下载列表中打开新文件。`;
+      } else {
+        updateText.textContent = "下载失败，请稍后再试。";
+      }
+      confirmUpdateBtn.disabled = false;
+    });
+
+    dismissUpdateBtn.addEventListener("click", () => {
+      updateBanner.classList.remove("show");
+      hasPendingUpdate = false;
     });
 
     copyBtn.addEventListener("click", async () => {
@@ -381,12 +422,17 @@
       setTimeout(() => { copyBtn.textContent = "复制"; }, 1500);
     });
 
-    retryBtn.addEventListener("click", resolveLatestUrl);
-    checkUpdateBtn.addEventListener("click", () => checkToolUpdate(true));
+    retryBtn.addEventListener("click", async () => {
+      await checkToolUpdate();
+      await resolveLatestUrl();
+    });
 
     renderMirrors();
-    resolveLatestUrl();
-    checkToolUpdate(false);
+    (async () => {
+      await checkToolUpdate();
+      await resolveLatestUrl();
+    })();
   </script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"cdd61abb383b404fb557c79c65f5ceff","r":1,"spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
