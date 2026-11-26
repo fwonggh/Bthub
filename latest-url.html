@@ -200,7 +200,7 @@
 
   <script>
     // 每次发布新版本 HTML 时，修改此版本号
-    const TOOL_VERSION = "2026.11.24.2";
+    const TOOL_VERSION = "2026.11.24.3";
 
     // 最新网址发布文件路径（github.io / pages.dev）
     const SOURCES = [
@@ -261,38 +261,108 @@
       return arr[Math.floor(Math.random() * arr.length)];
     }
 
-    function normalizeUrl(raw) {
+    function shuffleArray(arr) {
+      const copy = arr.slice();
+      for (let i = copy.length - 1; i > 0; i--) {
+        let j = 0;
+        if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+          const buf = new Uint32Array(1);
+          const limit = Math.floor(0x100000000 / (i + 1)) * (i + 1);
+          let n = 0;
+          do {
+            window.crypto.getRandomValues(buf);
+            n = buf[0];
+          } while (n >= limit);
+          j = n % (i + 1);
+        } else {
+          j = Math.floor(Math.random() * (i + 1));
+        }
+        const tmp = copy[i];
+        copy[i] = copy[j];
+        copy[j] = tmp;
+      }
+      return copy;
+    }
+
+    function extractCandidateUrls(raw) {
       const s = String(raw || "").trim();
-      if (!s) return "";
+      if (!s) return [];
+      const list = [];
+
       if (s.startsWith("{")) {
         try {
           const obj = JSON.parse(s);
-          const list = Array.isArray(obj.urls)
+          const items = Array.isArray(obj.urls)
             ? obj.urls
             : [obj.url || obj.latest_url || obj.domain || ""];
-          const validJson = list
-            .map((item) => String(item || "").trim())
-            .filter(Boolean)
-            .map((v) => (/^https?:\/\//i.test(v) ? v : "https://" + v));
-          if (validJson.length) return pickRandomItem(validJson);
+          for (const item of items) {
+            const v = String(item || "").trim();
+            if (v) list.push(/^https?:\/\//i.test(v) ? v : "https://" + v);
+          }
         } catch (_) {}
       }
 
-      const candidates = s
-        .split(/\r?\n/)
-        .map((line) => line.replace(/#.*$/, "").trim())
-        .filter(Boolean)
-        .map((line) => {
-          const m = line.match(/https?:\/\/[^\s"'<>]+/i);
-          if (m) return m[0].replace(/[.,;)]+$/, "");
-          if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(line)) {
-            return "https://" + line;
-          }
-          return "";
-        })
-        .filter(Boolean);
+      const lines = s.split(/\r?\n/);
+      for (const line of lines) {
+        const clean = line.replace(/#.*$/, "").trim();
+        if (!clean) continue;
+        const m = clean.match(/https?:\/\/[^\s"'<>]+/i);
+        if (m) {
+          list.push(m[0].replace(/[.,;)]+$/, ""));
+        } else if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/.test(clean)) {
+          list.push("https://" + clean);
+        }
+      }
 
-      return pickRandomItem(candidates);
+      const deduped = [];
+      const seen = new Set();
+      for (const u of list) {
+        try {
+          const norm = new URL(u).toString();
+          if (!seen.has(norm)) {
+            seen.add(norm);
+            deduped.push(norm);
+          }
+        } catch (_) {}
+      }
+      return deduped;
+    }
+
+    function normalizeUrl(raw) {
+      const pool = extractCandidateUrls(raw);
+      if (!pool.length) return "";
+      const shuffled = shuffleArray(pool);
+      return shuffled[0];
+    }
+
+    async function probeFastestUrl(urls, timeoutMs = 2200) {
+      if (!Array.isArray(urls) || !urls.length) return null;
+      const shuffled = shuffleArray(urls);
+
+      const probes = shuffled.map((url) => new Promise((resolve) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => {
+          ctrl.abort();
+          resolve(null);
+        }, timeoutMs);
+        const startTime = performance.now();
+        const sep = url.includes("?") ? "&" : "?";
+        fetch(`${url}${sep}_ping=${Date.now()}`, {
+          mode: "no-cors",
+          cache: "no-store",
+          signal: ctrl.signal
+        }).then(() => {
+          clearTimeout(timer);
+          resolve({ url, latency: Math.round(performance.now() - startTime) });
+        }).catch(() => {
+          clearTimeout(timer);
+          resolve(null);
+        });
+      }));
+
+      const results = await Promise.all(probes);
+      const alive = results.filter(Boolean).sort((a, b) => a.latency - b.latency);
+      return alive.length ? alive[0] : null;
     }
     function parseVersionFromHtml(htmlText) {
       const m = String(htmlText || "").match(/const\s+TOOL_VERSION\s*=\s*["']([^"']+)["']/);
@@ -433,6 +503,5 @@
       await resolveLatestUrl();
     })();
   </script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" data-cf-beacon='{"version":"2024.11.0","token":"cdd61abb383b404fb557c79c65f5ceff","r":1,"spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
