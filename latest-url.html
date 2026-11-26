@@ -200,7 +200,7 @@
 
   <script>
     // 每次发布新版本 HTML 时，修改此版本号
-    const TOOL_VERSION = "2026.11.26.2";
+    const TOOL_VERSION = "2026.11.26.1";
 
     // 最新网址发布文件路径（github.io / pages.dev）
     const SOURCES = [
@@ -487,26 +487,40 @@ function triggerHtmlDownload(htmlText, versionTag) {
       return true;
     }
 
-    async function checkToolUpdate() {
+    let remoteHtmlSeq = 0;
+
+    async function fetchRemoteToolHtml() {
       for (const src of TOOL_SOURCES) {
         try {
-          const html = await fetchTextWithTimeout(src, 5000);
-          const remoteVer = parseVersionFromHtml(html);
-          if (remoteVer && remoteVer !== TOOL_VERSION && html.includes("<html")) {
-            latestHtmlCache = html;
-            latestRemoteVersion = remoteVer;
-            hasPendingUpdate = true;
-            autoJumpChk.checked = false;
-            updateText.textContent = `发现新版本 v${remoteVer}（当前 v${TOOL_VERSION}），是否下载新版？`;
-            updateBanner.classList.add("show");
-            return true;
+          remoteHtmlSeq += 1;
+          const sep = src.includes("?") ? "&" : "?";
+          const bust = `${Date.now()}_${remoteHtmlSeq}_${Math.random().toString(36).slice(2, 10)}`;
+          const liveUrl = `${src}${sep}_live_remote=${bust}&_r=${bust}`;
+          const html = await fetchTextWithTimeout(liveUrl, 5000);
+          if (html && html.includes("<html")) {
+            return { html, version: parseVersionFromHtml(html), source: liveUrl };
           }
         } catch (_) {}
+      }
+      return null;
+    }
+
+    async function checkToolUpdate() {
+      latestHtmlCache = "";
+      latestRemoteVersion = "";
+      const remote = await fetchRemoteToolHtml();
+      if (remote && remote.version && remote.version !== TOOL_VERSION) {
+        latestHtmlCache = remote.html;
+        latestRemoteVersion = remote.version;
+        hasPendingUpdate = true;
+        autoJumpChk.checked = false;
+        updateText.textContent = `检测到远端新版本 v${remote.version}（当前 v${TOOL_VERSION}），是否下载新版？`;
+        updateBanner.classList.add("show");
+        return true;
       }
       hasPendingUpdate = false;
       return false;
     }
-
     async function resolveLatestUrl() {
   statusBox.className = "status";
   statusBox.textContent = "正在测速…";
@@ -561,31 +575,36 @@ function triggerHtmlDownload(htmlText, versionTag) {
   statusBox.className = "status err";
   statusBox.textContent = "所有候选网址均未通过测速，请点击下方备用入口或重新检测。";
 }
+async function checkRemoteToolUpdate() {
+  const remote = await fetchRemoteToolHtml();
+  if (!remote || !remote.version || remote.version === TOOL_VERSION) {
+    hasPendingUpdate = false;
+    return false;
+  }
+
+  latestHtmlCache = remote.html;
+  latestRemoteVersion = remote.version;
+  hasPendingUpdate = true;
+  autoJumpChk.checked = false;
+  updateText.textContent = `检测到远端新版本 v${remote.version}（当前 v${TOOL_VERSION}），是否下载新版？`;
+  updateBanner.classList.add("show");
+  return true;
+}
 confirmUpdateBtn.addEventListener("click", async () => {
       confirmUpdateBtn.disabled = true;
-      updateText.textContent = `正在下载新版本 v${latestRemoteVersion || "latest"}…`;
+      updateText.textContent = "正在直接从远端拉取最新文件…";
 
-      let htmlToSave = latestHtmlCache;
-      if (!htmlToSave) {
-        for (const src of TOOL_SOURCES) {
-          try {
-            const h = await fetchTextWithTimeout(src, 5000);
-            if (h && h.includes("<html")) {
-              htmlToSave = h;
-              break;
-            }
-          } catch (_) {}
-        }
-      }
+      const remote = await fetchRemoteToolHtml();
+      const htmlToSave = remote && remote.html ? remote.html : latestHtmlCache;
+      const verTag = (remote && remote.version) || latestRemoteVersion || "latest";
 
-      if (triggerHtmlDownload(htmlToSave, latestRemoteVersion)) {
-        updateText.textContent = `已开始下载新版 v${latestRemoteVersion || "latest"}，请在浏览器下载列表中打开新文件。`;
+      if (triggerHtmlDownload(htmlToSave, verTag)) {
+        updateText.textContent = `已下载最新版本 v${verTag}，请在浏览器下载列表中打开新文件。`;
       } else {
-        updateText.textContent = "下载失败，请稍后再试。";
+        updateText.textContent = "远端拉取失败，请稍后再试。";
       }
       confirmUpdateBtn.disabled = false;
     });
-
     dismissUpdateBtn.addEventListener("click", () => {
       updateBanner.classList.remove("show");
       hasPendingUpdate = false;
@@ -606,13 +625,13 @@ confirmUpdateBtn.addEventListener("click", async () => {
     });
 
     retryBtn.addEventListener("click", async () => {
-      await checkToolUpdate();
+      await checkRemoteToolUpdate();
       await resolveLatestUrl();
     });
 
     renderMirrors();
     (async () => {
-      await checkToolUpdate();
+      await checkRemoteToolUpdate();
       await resolveLatestUrl();
     })();
   </script>
