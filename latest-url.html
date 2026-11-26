@@ -200,7 +200,7 @@
 
   <script>
     // 每次发布新版本 HTML 时，修改此版本号
-    const TOOL_VERSION = "2026.11.25.3";
+    const TOOL_VERSION = "2026.11.26.1";
 
     // 最新网址发布文件路径（github.io / pages.dev）
     const SOURCES = [
@@ -453,19 +453,19 @@ function parseVersionFromHtml(htmlText) {
       return m ? m[1].trim() : "";
     }
 
-    async function fetchTextWithTimeout(url, timeoutMs = 4500) {
+    let fetchSeq = 0;
+
+async function fetchTextWithTimeout(url, timeoutMs = 4500) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
+    fetchSeq += 1;
     const sep = url.includes("?") ? "&" : "?";
-    const nonce = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const res = await fetch(`${url}${sep}_t=${nonce}`, {
+    const bust = `${Date.now()}_${fetchSeq}_${Math.random().toString(36).slice(2, 8)}`;
+    const res = await fetch(`${url}${sep}_nocache=${bust}&_v=${bust}`, {
       signal: ctrl.signal,
       cache: "no-store",
-      headers: {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache"
-      }
+      redirect: "follow"
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
     return await res.text();
