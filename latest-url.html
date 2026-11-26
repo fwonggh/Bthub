@@ -335,36 +335,51 @@
       return shuffled[0];
     }
 
-    async function probeFastestUrl(urls, timeoutMs = 2200) {
-      if (!Array.isArray(urls) || !urls.length) return null;
-      const shuffled = shuffleArray(urls);
+    function probeSingleUrl(url, timeoutMs = 2200) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (val) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(val);
+    };
+    const timer = setTimeout(() => done(null), timeoutMs);
+    const t0 = performance.now();
+    const sep = url.includes("?") ? "&" : "?";
+    const probeUrl = `${url}${sep}_chk=${Date.now()}`;
 
-      const probes = shuffled.map((url) => new Promise((resolve) => {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => {
-          ctrl.abort();
-          resolve(null);
-        }, timeoutMs);
-        const startTime = performance.now();
-        const sep = url.includes("?") ? "&" : "?";
-        fetch(`${url}${sep}_ping=${Date.now()}`, {
-          mode: "no-cors",
-          cache: "no-store",
-          signal: ctrl.signal
-        }).then(() => {
-          clearTimeout(timer);
-          resolve({ url, latency: Math.round(performance.now() - startTime) });
-        }).catch(() => {
-          clearTimeout(timer);
-          resolve(null);
-        });
-      }));
+    const requestWith = (method) => {
+      const ctrl = new AbortController();
+      const subTimer = setTimeout(() => ctrl.abort(), Math.max(600, timeoutMs - 200));
+      return fetch(probeUrl, {
+        method,
+        mode: "no-cors",
+        cache: "no-store",
+        signal: ctrl.signal
+      }).then(() => {
+        clearTimeout(subTimer);
+        done({ url, latency: Math.round(performance.now() - t0), method });
+      }).catch((err) => {
+        clearTimeout(subTimer);
+        throw err;
+      });
+    };
 
-      const results = await Promise.all(probes);
-      const alive = results.filter(Boolean).sort((a, b) => a.latency - b.latency);
-      return alive.length ? alive[0] : null;
-    }
-    function parseVersionFromHtml(htmlText) {
+    requestWith("HEAD").catch(() => {
+      requestWith("GET").catch(() => done(null));
+    });
+  });
+}
+
+async function probeFastestUrl(urls, timeoutMs = 2200) {
+  if (!Array.isArray(urls) || !urls.length) return null;
+  const shuffled = shuffleArray(urls);
+  const results = await Promise.all(shuffled.map((u) => probeSingleUrl(u, timeoutMs)));
+  const alive = results.filter(Boolean).sort((a, b) => a.latency - b.latency);
+  return alive.length ? alive[0] : null;
+}
+function parseVersionFromHtml(htmlText) {
       const m = String(htmlText || "").match(/const\s+TOOL_VERSION\s*=\s*["']([^"']+)["']/);
       return m ? m[1].trim() : "";
     }
@@ -420,35 +435,52 @@
     }
 
     async function resolveLatestUrl() {
-      statusBox.className = "status";
-      statusBox.textContent = "正在获取最新网址…";
-      latestUrlInput.value = "";
-      openBtn.setAttribute("href", "#");
+  statusBox.className = "status";
+  statusBox.textContent = "正在测速并筛选可用网址…";
+  latestUrlInput.value = "";
+  openBtn.setAttribute("href", "#");
 
-      for (const src of SOURCES) {
-        try {
-          const text = await fetchTextWithTimeout(src);
-          const target = normalizeUrl(text);
-          if (!target) continue;
-          statusBox.className = "status ok";
-          statusBox.textContent = "已获取最新网址";
-          latestUrlInput.value = target;
-          openBtn.setAttribute("href", target);
+  for (const src of SOURCES) {
+    try {
+      const text = await fetchTextWithTimeout(src, 4500);
+      const candidates = extractCandidateUrls(text);
+      if (!candidates.length) continue;
 
-          if (!hasPendingUpdate && autoJumpChk.checked) {
-            setTimeout(() => {
-              window.location.href = target;
-            }, 800);
-          }
-          return;
-        } catch (_) {}
+      const picked = await probeFastestUrl(candidates, 2200);
+      if (!picked || !picked.url) continue;
+
+      statusBox.className = "status ok";
+      statusBox.textContent = `已选出最快可用网址（${picked.method} · 约 ${picked.latency} ms）`;
+      latestUrlInput.value = picked.url;
+      openBtn.setAttribute("href", picked.url);
+
+      if (!hasPendingUpdate && autoJumpChk.checked) {
+        setTimeout(() => {
+          window.location.href = picked.url;
+        }, 800);
       }
+      return;
+    } catch (_) {}
+  }
 
-      statusBox.className = "status err";
-      statusBox.textContent = "自动获取最新网址失败，请点击下方备用入口或重新检测。";
+  const fallbackPicked = await probeFastestUrl(FALLBACK_URLS, 2200);
+  if (fallbackPicked && fallbackPicked.url) {
+    statusBox.className = "status ok";
+    statusBox.textContent = `已切换至最快备用网址（${fallbackPicked.method} · 约 ${fallbackPicked.latency} ms）`;
+    latestUrlInput.value = fallbackPicked.url;
+    openBtn.setAttribute("href", fallbackPicked.url);
+    if (!hasPendingUpdate && autoJumpChk.checked) {
+      setTimeout(() => {
+        window.location.href = fallbackPicked.url;
+      }, 800);
     }
+    return;
+  }
 
-    confirmUpdateBtn.addEventListener("click", async () => {
+  statusBox.className = "status err";
+  statusBox.textContent = "自动获取最新网址失败，请点击下方备用入口或重新检测。";
+}
+confirmUpdateBtn.addEventListener("click", async () => {
       confirmUpdateBtn.disabled = true;
       updateText.textContent = `正在下载新版本 v${latestRemoteVersion || "latest"}…`;
 
